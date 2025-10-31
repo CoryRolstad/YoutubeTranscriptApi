@@ -1,0 +1,104 @@
+name: Monthly Dependency Update and Docker Build
+
+on:
+  schedule:
+    # Runs at 00:00 UTC on the first day of every month
+    - cron: '0 0 1 * *'
+  workflow_dispatch:  # Allows manual triggering for testing
+
+jobs:
+  update-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Get latest youtube-transcript-api version
+        id: version
+        run: |
+          # Fetch the latest version from PyPI
+          LATEST_VERSION=$(curl -s https://pypi.org/pypi/youtube-transcript-api/json | jq -r '.info.version')
+          echo "latest_version=${LATEST_VERSION}" >> $GITHUB_OUTPUT
+          echo "Latest youtube-transcript-api version: ${LATEST_VERSION}"
+
+          # Get current version from requirements.txt
+          CURRENT_VERSION=$(grep 'youtube-transcript-api==' requirements.txt | cut -d'=' -f3)
+          echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+          echo "Current version in requirements.txt: ${CURRENT_VERSION}"
+
+          # Check if update is needed
+          if [ "${LATEST_VERSION}" != "${CURRENT_VERSION}" ]; then
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "Update needed: ${CURRENT_VERSION} -> ${LATEST_VERSION}"
+          else
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "Already at latest version: ${CURRENT_VERSION}"
+          fi
+
+      - name: Update requirements.txt
+        if: steps.version.outputs.needs_update == 'true'
+        run: |
+          # Update the youtube-transcript-api version
+          sed -i "s/youtube-transcript-api==.*/youtube-transcript-api==${{ steps.version.outputs.latest_version }}/" requirements.txt
+          echo "Updated requirements.txt to version ${{ steps.version.outputs.latest_version }}"
+
+      - name: Commit updated requirements.txt
+        if: steps.version.outputs.needs_update == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add requirements.txt
+          git commit -m "Update youtube-transcript-api to ${{ steps.version.outputs.latest_version }}"
+          git push
+
+      - name: Login to DockerHub
+        if: steps.version.outputs.needs_update == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up QEMU
+        if: steps.version.outputs.needs_update == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.version.outputs.needs_update == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        if: steps.version.outputs.needs_update == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            oldgrandpavanu/youtubetranscriptapi:${{ steps.version.outputs.latest_version }}
+            oldgrandpavanu/youtubetranscriptapi:latest
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.needs_update == 'true'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.latest_version }}
+          release_name: Release ${{ steps.version.outputs.latest_version }}
+          body: |
+            Automatic monthly update to youtube-transcript-api ${{ steps.version.outputs.latest_version }}
+
+            Docker images:
+            - `oldgrandpavanu/youtubetranscriptapi:${{ steps.version.outputs.latest_version }}`
+            - `oldgrandpavanu/youtubetranscriptapi:latest`
+          draft: false
+          prerelease: false
+
+      - name: No update needed
+        if: steps.version.outputs.needs_update == 'false'
+        run: |
+          echo "Already using the latest version of youtube-transcript-api (${{ steps.version.outputs.current_version }})"
+          echo "No build necessary."
