@@ -1,7 +1,15 @@
 from fastapi import FastAPI, HTTPException, Security, Depends
 from fastapi.security.api_key import APIKeyHeader
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import NoTranscriptFound, VideoUnavailable, TranscriptsDisabled
+from youtube_transcript_api._errors import (
+    NoTranscriptFound,
+    VideoUnavailable,
+    TranscriptsDisabled,
+    RequestBlocked,
+    AgeRestricted,
+    VideoUnplayable,
+    IpBlocked
+)
 from youtube_transcript_api.formatters import JSONFormatter, TextFormatter, WebVTTFormatter, SRTFormatter
 from enum import Enum
 from fastapi.responses import Response
@@ -23,7 +31,7 @@ app = FastAPI(
     version="0.1.0",
     contact={
         "name": "API Support",
-        "url": "https://github.com/yoanbernabeu/YoutubeTranscriptApi"
+        "url": "https://github.com/coryrolstad/YoutubeTranscriptApi"
     },
     license_info={
         "name": "MIT",
@@ -77,7 +85,9 @@ async def get_transcript(
     Available formats: json, text, webvtt, srt
     """
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=[language])
+        # Create instance and fetch transcript
+        api = YouTubeTranscriptApi()
+        transcript = api.fetch(video_id, languages=[language])
         
         formatters = {
             TranscriptFormat.JSON: JSONFormatter(),
@@ -105,6 +115,14 @@ async def get_transcript(
         raise HTTPException(status_code=404, detail="Transcript not found for the specified language.")
     except VideoUnavailable:
         raise HTTPException(status_code=404, detail="Video is unavailable.")
+    except AgeRestricted:
+        raise HTTPException(status_code=403, detail="Video is age restricted.")
+    except VideoUnplayable:
+        raise HTTPException(status_code=404, detail="Video is unplayable.")
+    except RequestBlocked:
+        raise HTTPException(status_code=429, detail="Request blocked by YouTube. Please try again later.")
+    except IpBlocked:
+        raise HTTPException(status_code=403, detail="Your IP address has been blocked by YouTube.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -117,9 +135,11 @@ async def list_transcripts(
     List all available transcripts for a given YouTube video ID.
     """
     try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        # Create instance and list transcripts
+        api = YouTubeTranscriptApi()
+        transcript_list = api.list(video_id)
         available_transcripts = []
-        
+
         for transcript in transcript_list:
             available_transcripts.append({
                 "language": transcript.language,
@@ -137,5 +157,13 @@ async def list_transcripts(
         raise HTTPException(status_code=404, detail="Transcripts are disabled for this video.")
     except VideoUnavailable:
         raise HTTPException(status_code=404, detail="Video is unavailable.")
+    except AgeRestricted:
+        raise HTTPException(status_code=403, detail="Video is age restricted.")
+    except VideoUnplayable:
+        raise HTTPException(status_code=404, detail="Video is unplayable.")
+    except RequestBlocked:
+        raise HTTPException(status_code=429, detail="Request blocked by YouTube. Please try again later.")
+    except IpBlocked:
+        raise HTTPException(status_code=403, detail="Your IP address has been blocked by YouTube.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

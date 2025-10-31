@@ -14,14 +14,16 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Set Docker tags
         id: meta
         run: |
           if [[ $GITHUB_REF == refs/tags/* ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
-            echo "tags=yoanbernabeu/youtubetranscriptapi:${VERSION},yoanbernabeu/youtubetranscriptapi:latest" >> $GITHUB_OUTPUT
+            echo "tags=oldgrandpavanu/youtubetranscriptapi:${VERSION},oldgrandpavanu/youtubetranscriptapi:latest" >> $GITHUB_OUTPUT
           else
-            echo "tags=yoanbernabeu/youtubetranscriptapi:dev" >> $GITHUB_OUTPUT
+            echo "tags=oldgrandpavanu/youtubetranscriptapi:dev" >> $GITHUB_OUTPUT
           fi
 
       - name: Login to DockerHub
