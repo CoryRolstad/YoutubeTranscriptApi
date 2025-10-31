@@ -13,7 +13,7 @@ A REST API wrapper around [youtube-transcript-api](https://pypi.org/project/yout
 
 One-liner to run with Docker:
 ```bash
-docker run -p 8000:8000 yoanbernabeu/youtubetranscriptapi:latest
+docker run -p 8000:8000 oldgrandpavanu/youtubetranscriptapi:latest
 ```
 
 ## Installation
