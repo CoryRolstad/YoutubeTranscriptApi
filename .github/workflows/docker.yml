@@ -20,12 +20,9 @@ jobs:
       - name: Set Docker tags
         id: meta
         run: |
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            VERSION=${GITHUB_REF#refs/tags/}
-            echo "tags=oldgrandpavanu/youtubetranscriptapi:${VERSION},oldgrandpavanu/youtubetranscriptapi:latest" >> $GITHUB_OUTPUT
-          else
-            echo "tags=oldgrandpavanu/youtubetranscriptapi:dev" >> $GITHUB_OUTPUT
-          fi
+          VERSION=$(grep 'youtube-transcript-api==' requirements.txt | cut -d'=' -f3)
+          echo "tags=oldgrandpavanu/youtubetranscriptapi:${VERSION},oldgrandpavanu/youtubetranscriptapi:latest" >> $GITHUB_OUTPUT
+          echo "Tagging Docker image with version: ${VERSION}"
 
       - name: Login to DockerHub
         if: github.event_name != 'pull_request'
