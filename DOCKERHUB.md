@@ -156,6 +156,100 @@ curl -H "X-API-Key: your_secret_key_here" \
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `API_KEY` | No | None | When set, requires X-API-Key header for all protected endpoints |
+| `API_KEY_FILE` | No | None | Path to file containing API key (recommended for production). Mutually exclusive with `API_KEY` |
+
+## Production Deployment with Docker Secrets
+
+For production environments, use Docker secrets instead of environment variables for enhanced security.
+
+### Docker Swarm Secrets
+
+```bash
+# Create the secret
+echo "your_production_api_key" | docker secret create api_key -
+
+# Deploy as a service
+docker service create \
+  --name youtube-transcript-api \
+  --secret api_key \
+  --env API_KEY_FILE=/run/secrets/api_key \
+  --publish 8000:8000 \
+  --replicas 3 \
+  oldgrandpavanu/youtubetranscriptapi:latest
+
+# Or using docker stack with compose file
+docker stack deploy -c compose.yaml youtube-transcript-api
+```
+
+### Docker Compose with Secrets (Local Development)
+
+Create a `compose.yaml`:
+
+```yaml
+services:
+  api:
+    image: oldgrandpavanu/youtubetranscriptapi:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - API_KEY_FILE=/run/secrets/api_key
+    secrets:
+      - api_key
+    restart: unless-stopped
+
+secrets:
+  api_key:
+    file: ./secrets/api_key.txt  # For local dev
+    # external: true              # For production swarm
+```
+
+Then create the secret file and start:
+
+```bash
+mkdir -p secrets
+echo "your_secret_key" > secrets/api_key.txt
+chmod 600 secrets/api_key.txt
+docker compose up -d
+```
+
+### Kubernetes Secrets
+
+For Kubernetes deployments:
+
+```bash
+# Create the secret
+kubectl create secret generic youtube-api-key \
+  --from-literal=api-key=your_secret_key_here
+
+# Reference in deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: youtube-transcript-api
+spec:
+  template:
+    spec:
+      containers:
+      - name: api
+        image: oldgrandpavanu/youtubetranscriptapi:latest
+        env:
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: youtube-api-key
+              key: api-key
+```
+
+### Security Benefits
+
+Using the `_FILE` suffix pattern with Docker secrets provides:
+
+- **No exposure in `docker inspect`**: Secrets are not visible in container metadata
+- **Encryption at rest**: Secrets are encrypted in Docker Swarm's Raft log
+- **Encryption in transit**: Secrets are transmitted encrypted over TLS
+- **Access control**: Only authorized services can access specific secrets
+- **Audit trail**: Secret access can be logged and monitored
+- **No environment variable leaks**: Prevents accidental exposure in logs or process listings
 
 ## Error Handling
 

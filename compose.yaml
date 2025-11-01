@@ -6,7 +6,14 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - API_KEY=${API_KEY:-}  # Optional: uses API_KEY value if defined, empty otherwise
+      # Option 1: Direct environment variable (backward compatible, less secure)
+      - API_KEY=${API_KEY:-}
+      # Option 2: File-based secrets (recommended for production)
+      # Uncomment the line below and comment out API_KEY above to use secrets
+      # - API_KEY_FILE=/run/secrets/api_key
+    # Uncomment 'secrets' section below to enable Docker secrets
+    # secrets:
+    #   - api_key
     volumes:
       - .:/app
     restart: unless-stopped
@@ -16,3 +23,21 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
+
+# Docker secrets configuration (uncomment to enable)
+# For local development with docker compose:
+# 1. Create secrets/api_key.txt file with your API key
+# 2. Uncomment the secrets section below
+# 3. Uncomment the secrets reference in the service above
+# 4. Set API_KEY_FILE environment variable instead of API_KEY
+#
+# secrets:
+#   api_key:
+#     file: ./secrets/api_key.txt
+#
+# For production with Docker Swarm:
+# Use external secrets created with: docker secret create api_key ./secrets/api_key.txt
+#
+# secrets:
+#   api_key:
+#     external: true

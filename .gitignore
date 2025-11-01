@@ -76,3 +76,5 @@ doc/_build/
 
 # pyenv
 .python-version
+
+CLAUDE.md

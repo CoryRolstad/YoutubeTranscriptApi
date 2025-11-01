@@ -70,6 +70,49 @@ curl -H "X-API-Key: your_secret_key_here" "http://localhost:8000/transcript?vide
 ## Environment Variables
 
 - `API_KEY`: Optional. If set, will require this key for protected endpoints.
+- `API_KEY_FILE`: Optional. Path to a file containing the API key (recommended for production). Mutually exclusive with `API_KEY`.
+
+## Docker Secrets (Recommended for Production)
+
+For enhanced security, use Docker secrets instead of environment variables. The API supports the `_FILE` suffix pattern used by official Docker images.
+
+### Using Docker Secrets with Docker Compose
+
+1. Create a secrets file:
+```bash
+mkdir -p secrets
+echo "your_secret_key_here" > secrets/api_key.txt
+chmod 600 secrets/api_key.txt
+```
+
+2. Update `compose.yaml` to use secrets (see commented examples in the file)
+
+3. Start the service:
+```bash
+docker compose up -d
+```
+
+### Using Docker Secrets with Docker Swarm
+
+```bash
+# Create the secret
+echo "your_secret_key_here" | docker secret create api_key -
+
+# Deploy with secrets
+docker service create \
+  --name youtube-transcript-api \
+  --secret api_key \
+  --env API_KEY_FILE=/run/secrets/api_key \
+  -p 8000:8000 \
+  oldgrandpavanu/youtubetranscriptapi:latest
+```
+
+### Why Use Docker Secrets?
+
+- **Security**: Secrets are never exposed in `docker inspect` or container logs
+- **Encryption**: Secrets are encrypted at rest and in transit (in Swarm mode)
+- **Access Control**: Fine-grained control over which services can access secrets
+- **Compliance**: Meets security best practices for production deployments
 
 ## License
 
